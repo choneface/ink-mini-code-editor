@@ -45,6 +45,12 @@ export type Props = {
 	 * Function to call when `Enter` is pressed, where first argument is a value of the input.
 	 */
 	readonly onSubmit?: (value: string) => void;
+
+	/**
+	 * Language for syntax highlighting (e.g., 'sql', 'javascript', 'python').
+	 * When not specified, no syntax highlighting is applied.
+	 */
+	readonly language?: string;
 };
 
 function TextInput({
@@ -56,6 +62,7 @@ function TextInput({
 	showCursor = true,
 	onChange,
 	onSubmit,
+	language,
 }: Props) {
 	const [state, setState] = useState({
 		cursorOffset: (originalValue || '').length,
@@ -193,7 +200,11 @@ function TextInput({
 			: renderedPlaceholder
 		: renderedValue;
 
-	return <SyntaxHighlight language="sql" code={displayValue ?? ''} />;
+	if (language) {
+		return <SyntaxHighlight language={language} code={displayValue ?? ''} />;
+	}
+
+	return <Text>{displayValue}</Text>;
 }
 
 export default TextInput;
@@ -212,32 +223,4 @@ export function UncontrolledTextInput({
 	const [value, setValue] = useState(initialValue);
 
 	return <TextInput {...props} value={value} onChange={setValue} />;
-}
-
-// Demo mode when running directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-	const {render, Box} = await import('ink');
-
-	function Demo() {
-		const [query, setQuery] = useState('SELECT * FROM users WHERE id = 1');
-
-		return (
-			<Box flexDirection="column">
-				<Text>SQL Query Editor (Ctrl+C to exit):</Text>
-				<Box>
-					<Text>{'> '}</Text>
-					<TextInput
-						value={query}
-						onChange={setQuery}
-						placeholder="Enter SQL query..."
-						onSubmit={(val) => {
-							console.log('\nSubmitted:', val);
-						}}
-					/>
-				</Box>
-			</Box>
-		);
-	}
-
-	render(<Demo />);
 }

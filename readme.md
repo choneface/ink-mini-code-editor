@@ -27,6 +27,7 @@ const SQLEditor = () => {
 					value={code}
 					onChange={setCode}
 					placeholder="Enter SQL query..."
+					language="sql"
 					onSubmit={(val) => {
 						console.log('Submitted:', val);
 					}}
@@ -90,6 +91,16 @@ Replace all chars and mask the value. Useful for password inputs.
 Type: `Function`
 
 Function to call when value updates.
+
+### language
+
+Type: `string`
+
+Language for syntax highlighting (e.g., `'sql'`, `'javascript'`, `'python'`). When not specified, no syntax highlighting is applied.
+
+```jsx
+<CodeEditor value={code} onChange={setCode} language="sql" />
+```
 
 ### onSubmit
 
