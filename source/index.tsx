@@ -2,6 +2,7 @@ import React, {useState, useEffect} from 'react';
 import {Text, useInput} from 'ink';
 import chalk from 'chalk';
 import type {Except} from 'type-fest';
+import SyntaxHighlight from 'ink-syntax-highlight';
 
 export type Props = {
 	/**
@@ -186,15 +187,13 @@ function TextInput({
 		{isActive: focus},
 	);
 
-	return (
-		<Text>
-			{placeholder
-				? value.length > 0
-					? renderedValue
-					: renderedPlaceholder
-				: renderedValue}
-		</Text>
-	);
+	const displayValue = placeholder
+		? value.length > 0
+			? renderedValue
+			: renderedPlaceholder
+		: renderedValue;
+
+	return <SyntaxHighlight language="sql" code={displayValue ?? ''} />;
 }
 
 export default TextInput;
@@ -213,4 +212,32 @@ export function UncontrolledTextInput({
 	const [value, setValue] = useState(initialValue);
 
 	return <TextInput {...props} value={value} onChange={setValue} />;
+}
+
+// Demo mode when running directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+	const {render, Box} = await import('ink');
+
+	function Demo() {
+		const [query, setQuery] = useState('SELECT * FROM users WHERE id = 1');
+
+		return (
+			<Box flexDirection="column">
+				<Text>SQL Query Editor (Ctrl+C to exit):</Text>
+				<Box>
+					<Text>{'> '}</Text>
+					<TextInput
+						value={query}
+						onChange={setQuery}
+						placeholder="Enter SQL query..."
+						onSubmit={(val) => {
+							console.log('\nSubmitted:', val);
+						}}
+					/>
+				</Box>
+			</Box>
+		);
+	}
+
+	render(<Demo />);
 }
