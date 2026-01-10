@@ -1,11 +1,11 @@
-# ink-text-input ![test](https://github.com/vadimdemedes/ink-text-input/workflows/test/badge.svg)
+# ink-mini-code-editor
 
-> Text input component for [Ink](https://github.com/vadimdemedes/ink).
+> Code editor component with syntax highlighting for [Ink](https://github.com/vadimdemedes/ink) CLI applications.
 
 ## Install
 
 ```sh
-npm install ink-text-input
+npm install ink-mini-code-editor
 ```
 
 ## Usage
@@ -13,26 +13,31 @@ npm install ink-text-input
 ```jsx
 import React, {useState} from 'react';
 import {render, Box, Text} from 'ink';
-import TextInput from 'ink-text-input';
+import CodeEditor from 'ink-mini-code-editor';
 
-const SearchQuery = () => {
-	const [query, setQuery] = useState('');
+const SQLEditor = () => {
+	const [code, setCode] = useState('SELECT * FROM users WHERE id = 1');
 
 	return (
-		<Box>
-			<Box marginRight={1}>
-				<Text>Enter your query:</Text>
+		<Box flexDirection="column">
+			<Text>SQL Query Editor:</Text>
+			<Box>
+				<Text>{'> '}</Text>
+				<CodeEditor
+					value={code}
+					onChange={setCode}
+					placeholder="Enter SQL query..."
+					onSubmit={(val) => {
+						console.log('Submitted:', val);
+					}}
+				/>
 			</Box>
-
-			<TextInput value={query} onChange={setQuery} />
 		</Box>
 	);
 };
 
-render(<SearchQuery />);
+render(<SQLEditor />);
 ```
-
-<img src="media/demo.gif" width="556">
 
 ## Props
 
@@ -40,7 +45,7 @@ render(<SearchQuery />);
 
 Type: `string`
 
-Value to display in a text input.
+Value to display in the code editor.
 
 ### placeholder
 
@@ -50,7 +55,7 @@ Text to display when `value` is empty.
 
 ### focus
 
-Type: `boolean` \
+Type: `boolean`\
 Default: `true`
 
 Listen to user's input. Useful in case there are multiple input components at the same time and input must be "routed" to a specific component.
@@ -60,7 +65,7 @@ Listen to user's input. Useful in case there are multiple input components at th
 Type: `boolean`\
 Default: `true`
 
-Whether to show cursor and allow navigation inside text input with arrow keys.
+Whether to show cursor and allow navigation inside the editor with arrow keys.
 
 ### highlightPastedText
 
@@ -76,8 +81,8 @@ Type: `string`
 Replace all chars and mask the value. Useful for password inputs.
 
 ```jsx
-<TextInput value="Hello" mask="*" />
-//=> "*****"
+<CodeEditor value="secret" mask="*" />
+//=> "******"
 ```
 
 ### onChange
@@ -90,33 +95,48 @@ Function to call when value updates.
 
 Type: `Function`
 
-Function to call when `Enter` is pressed, where first argument is a value of the input.
+Function to call when `Enter` is pressed, where first argument is the value of the input.
 
 ## Uncontrolled usage
 
-This component also exposes an [uncontrolled](https://reactjs.org/docs/uncontrolled-components.html) version, which handles `value` changes for you. To receive the final input value, use `onSubmit` prop.
-Initial value can be specified via `initialValue` prop, which is supported only in `UncontrolledTextInput` component.
+This component also exposes an [uncontrolled](https://reactjs.org/docs/uncontrolled-components.html) version, which handles `value` changes for you. To receive the final input value, use `onSubmit` prop. Initial value can be specified via `initialValue` prop.
 
 ```jsx
 import React from 'react';
 import {render, Box, Text} from 'ink';
-import {UncontrolledTextInput} from 'ink-text-input';
+import {UncontrolledTextInput} from 'ink-mini-code-editor';
 
-const SearchQuery = () => {
-	const handleSubmit = query => {
-		// Do something with query
+const SQLEditor = () => {
+	const handleSubmit = (query) => {
+		// Execute query
 	};
 
 	return (
-		<Box>
-			<Box marginRight={1}>
-				<Text>Enter your query:</Text>
+		<Box flexDirection="column">
+			<Text>SQL Query Editor:</Text>
+			<Box>
+				<Text>{'> '}</Text>
+				<UncontrolledTextInput
+					initialValue="SELECT * FROM"
+					placeholder="Enter SQL query..."
+					onSubmit={handleSubmit}
+				/>
 			</Box>
-
-			<UncontrolledTextInput onSubmit={handleSubmit} />
 		</Box>
 	);
 };
 
-render(<SearchQuery />);
+render(<SQLEditor />);
 ```
+
+## Development
+
+Run the demo:
+
+```sh
+npm run dev
+```
+
+## License
+
+MIT
