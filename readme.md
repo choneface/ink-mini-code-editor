@@ -108,6 +108,29 @@ Type: `Function`
 
 Function to call when `Enter` is pressed, where first argument is the value of the input.
 
+### getSuggestion
+
+Type: `(value: string) => string | undefined`
+
+Function that returns an autocomplete suggestion based on the current value. The suggestion should be the complete text (including what's already typed). When a valid suggestion is returned, a grey ghost text appears showing the remainder of the suggestion. Press the right arrow key to accept the suggestion.
+
+```jsx
+const getSuggestion = (value) => {
+	const commands = ['select * from users', 'insert into table', 'delete from table'];
+	return commands.find(cmd => cmd.startsWith(value) && cmd !== value);
+};
+
+<CodeEditor value={code} onChange={setCode} getSuggestion={getSuggestion} />
+// User types "sel" → displays: sel|ect * from users (grey ghost text)
+// User presses → → value becomes "select * from users"
+```
+
+### onSuggestionAccept
+
+Type: `(accepted: string) => void`
+
+Callback function called when a suggestion is accepted via the right arrow key. The accepted suggestion string is passed as the argument.
+
 ## Uncontrolled usage
 
 This component also exposes an [uncontrolled](https://reactjs.org/docs/uncontrolled-components.html) version, which handles `value` changes for you. To receive the final input value, use `onSubmit` prop. Initial value can be specified via `initialValue` prop.

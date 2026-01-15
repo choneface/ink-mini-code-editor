@@ -21,7 +21,7 @@
 		"build": "tsc",
 		"prepare": "tsc",
 		"pretest": "tsc",
-		"dev": "tsx source/index.tsx"
+		"dev": "tsx source/demo.tsx"
 	},
 	"files": [
 		"build"

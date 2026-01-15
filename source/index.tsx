@@ -51,6 +51,18 @@ export type Props = {
 	 * When not specified, no syntax highlighting is applied.
 	 */
 	readonly language?: string;
+
+	/**
+	 * Function that returns an autocomplete suggestion based on the current value.
+	 * The suggestion should be the complete text (including what's already typed).
+	 * A grey ghost text will appear showing the remainder of the suggestion.
+	 */
+	readonly getSuggestion?: (value: string) => string | undefined;
+
+	/**
+	 * Callback when a suggestion is accepted (via right arrow key).
+	 */
+	readonly onSuggestionAccept?: (accepted: string) => void;
 };
 
 function TextInput({
@@ -63,6 +75,8 @@ function TextInput({
 	onChange,
 	onSubmit,
 	language,
+	getSuggestion,
+	onSuggestionAccept,
 }: Props) {
 	const [state, setState] = useState({
 		cursorOffset: (originalValue || '').length,
@@ -121,6 +135,24 @@ function TextInput({
 		}
 	}
 
+	// Compute ghost text for autocomplete suggestion
+	let ghostText = '';
+	if (getSuggestion && focus && cursorOffset === originalValue.length) {
+		const suggestion = getSuggestion(originalValue);
+		if (
+			suggestion &&
+			suggestion.startsWith(originalValue) &&
+			suggestion !== originalValue
+		) {
+			ghostText = suggestion.slice(originalValue.length);
+		}
+	}
+
+	// Append ghost text in dim styling
+	if (ghostText) {
+		renderedValue += chalk.dim(ghostText);
+	}
+
 	useInput(
 		(input, key) => {
 			if (
@@ -151,7 +183,24 @@ function TextInput({
 				}
 			} else if (key.rightArrow) {
 				if (showCursor) {
-					nextCursorOffset++;
+					// Check if we should accept autocomplete suggestion
+					if (cursorOffset === originalValue.length && getSuggestion) {
+						const suggestion = getSuggestion(originalValue);
+						if (
+							suggestion &&
+							suggestion.startsWith(originalValue) &&
+							suggestion !== originalValue
+						) {
+							// Accept the suggestion
+							nextValue = suggestion;
+							nextCursorOffset = suggestion.length;
+							onSuggestionAccept?.(suggestion);
+						} else {
+							nextCursorOffset++;
+						}
+					} else {
+						nextCursorOffset++;
+					}
 				}
 			} else if (key.backspace || key.delete) {
 				if (cursorOffset > 0) {
@@ -200,8 +249,53 @@ function TextInput({
 			: renderedPlaceholder
 		: renderedValue;
 
+	// When syntax highlighting is enabled, use component-based rendering
+	// to avoid ANSI code conflicts between chalk and the syntax highlighter
 	if (language) {
-		return <SyntaxHighlight language={language} code={displayValue ?? ''} />;
+		const showGhost = ghostText && focus && cursorOffset === value.length;
+		const cursorVisible = showCursor && focus;
+
+		// Empty value with placeholder
+		if (value.length === 0 && placeholder) {
+			return (
+				<Text>
+					{cursorVisible ? (
+						<>
+							<Text inverse>{placeholder[0] ?? ' '}</Text>
+							<Text dimColor>{placeholder.slice(1)}</Text>
+						</>
+					) : (
+						<Text dimColor>{placeholder}</Text>
+					)}
+				</Text>
+			);
+		}
+
+		// Empty value without placeholder
+		if (value.length === 0) {
+			return cursorVisible ? <Text inverse> </Text> : <Text />;
+		}
+
+		const beforeCursor = value.slice(0, cursorOffset);
+		const atCursor = value[cursorOffset] ?? '';
+		const afterCursor = atCursor ? value.slice(cursorOffset + 1) : '';
+		const cursorAtEnd = cursorOffset === value.length;
+
+		return (
+			<Text>
+				{beforeCursor && (
+					<SyntaxHighlight language={language} code={beforeCursor} />
+				)}
+				{cursorVisible && <Text inverse>{cursorAtEnd ? ' ' : atCursor}</Text>}
+				{!cursorVisible && atCursor && (
+					<SyntaxHighlight language={language} code={atCursor} />
+				)}
+				{afterCursor && (
+					<SyntaxHighlight language={language} code={afterCursor} />
+				)}
+				{showGhost && <Text dimColor>{ghostText}</Text>}
+			</Text>
+		);
 	}
 
 	return <Text>{displayValue}</Text>;

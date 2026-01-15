@@ -247,3 +247,100 @@ test('adjust cursor when text is shorter than last value', async t => {
 	await delay(100);
 	t.is(lastFrame(), `AB${chalk.inverse(' ')}`);
 });
+
+test('display ghost text suggestion', t => {
+	const getSuggestion = (value: string) => {
+		if (value === 'sel') {
+			return 'select * from users';
+		}
+
+		return undefined;
+	};
+
+	const {lastFrame} = render(
+		<TextInput value="sel" getSuggestion={getSuggestion} onChange={noop} />,
+	);
+
+	t.is(lastFrame(), `sel${chalk.inverse(' ')}${chalk.dim('ect * from users')}`);
+});
+
+test('no ghost text when suggestion equals value', t => {
+	const getSuggestion = () => 'hello';
+
+	const {lastFrame} = render(
+		<TextInput value="hello" getSuggestion={getSuggestion} onChange={noop} />,
+	);
+
+	t.is(lastFrame(), `hello${cursor}`);
+});
+
+test('no ghost text when cursor not at end', async t => {
+	function Test() {
+		const [value, setValue] = useState('sel');
+		const getSuggestion = (v: string) => {
+			if (v.startsWith('sel')) {
+				return 'select * from users';
+			}
+
+			return undefined;
+		};
+
+		return (
+			<TextInput
+				value={value}
+				getSuggestion={getSuggestion}
+				onChange={setValue}
+			/>
+		);
+	}
+
+	const {stdin, lastFrame} = render(<Test />);
+
+	// Initially cursor is at end, so ghost text should appear
+	t.is(lastFrame(), `sel${chalk.inverse(' ')}${chalk.dim('ect * from users')}`);
+
+	// Move cursor left - ghost text should disappear
+	await delay(100);
+	stdin.write(arrowLeft);
+	await delay(100);
+	t.is(lastFrame(), `se${chalk.inverse('l')}`);
+});
+
+test('accept suggestion with right arrow', async t => {
+	const onSuggestionAccept = spy();
+
+	function Test() {
+		const [value, setValue] = useState('sel');
+		const getSuggestion = (v: string) => {
+			if (v.startsWith('sel')) {
+				return 'select * from users';
+			}
+
+			return undefined;
+		};
+
+		return (
+			<TextInput
+				value={value}
+				getSuggestion={getSuggestion}
+				onChange={setValue}
+				onSuggestionAccept={onSuggestionAccept}
+			/>
+		);
+	}
+
+	const {stdin, lastFrame} = render(<Test />);
+
+	// Initially shows ghost text
+	t.is(lastFrame(), `sel${chalk.inverse(' ')}${chalk.dim('ect * from users')}`);
+
+	// Press right arrow to accept suggestion
+	await delay(100);
+	stdin.write(arrowRight);
+	await delay(100);
+
+	// Full suggestion should now be the value
+	t.is(lastFrame(), `select * from users${cursor}`);
+	t.true(onSuggestionAccept.calledWith('select * from users'));
+	t.true(onSuggestionAccept.calledOnce);
+});
