@@ -1,6 +1,6 @@
 {
 	"name": "ink-mini-code-editor",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Code editor for Ink library",
 	"license": "MIT",
 	"repository": "choneface/ink-mini-code-editor",
