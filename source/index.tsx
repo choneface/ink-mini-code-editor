@@ -1,8 +1,41 @@
 import React, {useState, useEffect} from 'react';
-import {Text, useInput} from 'ink';
+import {Text, useInput, type TextProps} from 'ink';
 import chalk from 'chalk';
 import type {Except} from 'type-fest';
 import SyntaxHighlight from 'ink-syntax-highlight';
+
+/**
+ * Decoration style preset names.
+ */
+export type DecorationStyle = 'error' | 'warning' | 'info' | 'highlight';
+
+/**
+ * A decoration that highlights a range of text with custom styles.
+ */
+export type Decoration = {
+	/**
+	 * Start character index (0-indexed, inclusive).
+	 */
+	start: number;
+	/**
+	 * End character index (exclusive).
+	 */
+	end: number;
+	/**
+	 * Preset style to apply.
+	 */
+	style: DecorationStyle;
+};
+
+/**
+ * Style mappings for decoration presets.
+ */
+const decorationStyles: Record<DecorationStyle, Partial<TextProps>> = {
+	error: {color: 'red', underline: true},
+	warning: {color: 'yellow', underline: true},
+	info: {color: 'blue', underline: true},
+	highlight: {backgroundColor: 'yellow'},
+};
 
 export type Props = {
 	/**
@@ -63,7 +96,110 @@ export type Props = {
 	 * Callback when a suggestion is accepted (via right arrow key).
 	 */
 	readonly onSuggestionAccept?: (accepted: string) => void;
+
+	/**
+	 * Array of decorations to apply to the text.
+	 * Each decoration highlights a range of text with a preset style.
+	 * Decorations only work when `language` is specified (syntax highlighting mode).
+	 */
+	readonly decorations?: Decoration[];
 };
+
+/**
+ * Merges multiple decoration styles into a single style object.
+ * Later decorations in the array take precedence for conflicting properties.
+ */
+function mergeDecorationStyles(
+	decorations: Decoration[],
+): Partial<TextProps> | undefined {
+	if (decorations.length === 0) return undefined;
+
+	const merged: Partial<TextProps> = {};
+	for (const dec of decorations) {
+		const style = decorationStyles[dec.style];
+		Object.assign(merged, style);
+	}
+
+	return merged;
+}
+
+/**
+ * Represents a segment of text to render with specific styling.
+ */
+type Segment = {
+	text: string;
+	start: number;
+	end: number;
+	isCursor: boolean;
+	decorations: Decoration[];
+};
+
+/**
+ * Creates segments of text based on cursor position and decorations.
+ * Each segment has a unique combination of styling needs.
+ */
+function createSegments(
+	value: string,
+	cursorOffset: number,
+	decorations: Decoration[],
+	showCursor: boolean,
+): Segment[] {
+	// Clamp decorations to valid bounds
+	const clampedDecorations = decorations.map(dec => ({
+		...dec,
+		start: Math.max(0, Math.min(dec.start, value.length)),
+		end: Math.max(0, Math.min(dec.end, value.length)),
+	}));
+
+	// Collect all split points
+	const splitPoints = new Set<number>([0, value.length]);
+
+	// Add cursor position as split point
+	if (showCursor) {
+		splitPoints.add(cursorOffset);
+		if (cursorOffset < value.length) {
+			splitPoints.add(cursorOffset + 1);
+		}
+	}
+
+	// Add decoration boundaries
+	for (const dec of clampedDecorations) {
+		if (dec.start < dec.end) {
+			splitPoints.add(dec.start);
+			splitPoints.add(dec.end);
+		}
+	}
+
+	// Sort and filter valid points
+	const points = [...splitPoints]
+		.sort((a, b) => a - b)
+		.filter(p => p >= 0 && p <= value.length);
+
+	// Create segments
+	const segments: Segment[] = [];
+	for (let i = 0; i < points.length - 1; i++) {
+		const start = points[i]!;
+		const end = points[i + 1]!;
+		const text = value.slice(start, end);
+		const isCursor =
+			showCursor && start === cursorOffset && end === cursorOffset + 1;
+
+		// Find decorations that overlap with this segment
+		const appliedDecorations = clampedDecorations.filter(
+			dec => dec.start < end && dec.end > start,
+		);
+
+		segments.push({
+			text,
+			start,
+			end,
+			isCursor,
+			decorations: appliedDecorations,
+		});
+	}
+
+	return segments;
+}
 
 function TextInput({
 	value: originalValue,
@@ -77,6 +213,7 @@ function TextInput({
 	language,
 	getSuggestion,
 	onSuggestionAccept,
+	decorations = [],
 }: Props) {
 	const [state, setState] = useState({
 		cursorOffset: (originalValue || '').length,
@@ -276,23 +413,50 @@ function TextInput({
 			return cursorVisible ? <Text inverse> </Text> : <Text />;
 		}
 
-		const beforeCursor = value.slice(0, cursorOffset);
-		const atCursor = value[cursorOffset] ?? '';
-		const afterCursor = atCursor ? value.slice(cursorOffset + 1) : '';
 		const cursorAtEnd = cursorOffset === value.length;
+
+		// Use segment-based rendering for decorations support
+		const segments = createSegments(
+			value,
+			cursorOffset,
+			decorations,
+			cursorVisible,
+		);
 
 		return (
 			<Text>
-				{beforeCursor && (
-					<SyntaxHighlight language={language} code={beforeCursor} />
-				)}
-				{cursorVisible && <Text inverse>{cursorAtEnd ? ' ' : atCursor}</Text>}
-				{!cursorVisible && atCursor && (
-					<SyntaxHighlight language={language} code={atCursor} />
-				)}
-				{afterCursor && (
-					<SyntaxHighlight language={language} code={afterCursor} />
-				)}
+				{segments.map(seg => {
+					// Cursor segment takes precedence over decorations
+					if (seg.isCursor) {
+						return (
+							<Text key={`cursor-${seg.start}`} inverse>
+								{seg.text}
+							</Text>
+						);
+					}
+
+					// Get merged decoration styles for this segment
+					const decorationStyle = mergeDecorationStyles(seg.decorations);
+
+					if (decorationStyle) {
+						// Render with decoration styles wrapping syntax highlight
+						return (
+							<Text key={`dec-${seg.start}`} {...decorationStyle}>
+								<SyntaxHighlight language={language} code={seg.text} />
+							</Text>
+						);
+					}
+
+					// No decorations, just syntax highlight
+					return (
+						<SyntaxHighlight
+							key={`seg-${seg.start}`}
+							language={language}
+							code={seg.text}
+						/>
+					);
+				})}
+				{cursorVisible && cursorAtEnd && <Text inverse> </Text>}
 				{showGhost && <Text dimColor>{ghostText}</Text>}
 			</Text>
 		);
